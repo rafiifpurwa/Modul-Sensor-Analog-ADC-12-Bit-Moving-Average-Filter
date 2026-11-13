@@ -1,0 +1,54 @@
+// Gunakan pin ADC1 pada ESP32 (GPIO 32, 33, 34, 35, 36, 39)
+// Jangan gunakan pin ADC2 karena bentrok saat Wi-Fi aktif!
+#define ANALOG_PIN 34
+#define FILTER_SIZE 10 // Jumlah sampel untuk Moving Average
+
+int adcBuffer[FILTER_SIZE];
+int bufferIndex = 0;
+long adcSum = 0;
+bool bufferFilled = false;
+
+unsigned long previousMillisADC = 0;
+const unsigned long intervalADC = 200; // Baca tiap 200 ms
+
+// Fungsi Moving Average Filter untuk meredam noise sinyal analog
+int getFilteredADC(int newSample) {
+  adcSum = adcSum - adcBuffer[bufferIndex];
+  adcBuffer[bufferIndex] = newSample;
+  adcSum = adcSum + newSample;
+  bufferIndex = (bufferIndex + 1) % FILTER_SIZE;
+
+  if (bufferIndex == 0) {
+    bufferFilled = true;
+  }
+
+  int count = bufferFilled ? FILTER_SIZE : bufferIndex;
+  return (int)(adcSum / count);
+}
+
+void setup() {
+  Serial.begin(115200);
+  analogReadResolution(12); // Pastikan resolusi 12-bit (0 - 4095)
+  
+  for (int i = 0; i < FILTER_SIZE; i++) {
+    adcBuffer[i] = 0;
+  }
+}
+
+void loop() {
+  unsigned long currentMillis = millis();
+
+  if (currentMillis - previousMillisADC >= intervalADC) {
+    previousMillisADC = currentMillis;
+
+    int rawValue = analogRead(ANALOG_PIN);
+    int filteredValue = getFilteredADC(rawValue);
+
+    // WAJIB Type Casting ke (float) untuk menghindari Integer Division Pitfall!
+    float voltage = ((float)filteredValue / 4095.0) * 3.3;
+    float percentage = ((float)filteredValue / 4095.0) * 100.0;
+
+    Serial.printf("Raw ADC: %d | Filtered ADC: %d | Tegangan: %.2f V | Persen: %.1f %%\n",
+                  rawValue, filteredValue, voltage, percentage);
+  }
+}
