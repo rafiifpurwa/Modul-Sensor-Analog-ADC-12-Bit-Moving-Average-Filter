@@ -1,0 +1,1 @@
+# Modul-Sensor-Analog-ADC-12-Bit-Moving-Average-Filter
